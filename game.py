@@ -3,21 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2048 Game Project</title>
+    <title>2048 Game</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        /* PRANJAL'S PART: Custom CSS & Animations */
-        body { font-family: 'Inter', sans-serif; touch-action: none; }
-        
-        .tile {
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 900; border-radius: 0.375rem;
-            font-size: 1.875rem; transition: all 0.15s ease-in-out;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: none; /* Disable panning and zooming on mobile */
         }
         
-        /* Tile Colors */
-        .tile-0 { background-color: #374151; }
+        /* Base tile styles */
+        .tile {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            border-radius: 0.375rem; /* rounded-md */
+            transition: all 0.15s ease-in-out;
+            /* Base styles for numbers */
+            font-size: 1.875rem; /* 30px */
+            line-height: 2.25rem; /* 36px */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Added depth */
+        }
+
+        @media (max-width: 400px) {
+            .tile {
+                font-size: 1.5rem; /* 24px */
+                line-height: 2rem; /* 32px */
+            }
+        }
+        
+        /* Tile color classes */
+        .tile-0 { background-color: #374151; } /* Darker empty tile (gray-700) */
         .tile-2 { background-color: #EEE4DA; color: #776E65; }
         .tile-4 { background-color: #EDE0C8; color: #776E65; }
         .tile-8 { background-color: #F2B179; color: #F9F6F2; }
@@ -25,111 +42,312 @@
         .tile-32 { background-color: #F67C5F; color: #F9F6F2; }
         .tile-64 { background-color: #F65E3B; color: #F9F6F2; }
         .tile-128 { background-color: #EDCF72; color: #F9F6F2; }
-        .tile-2048 { background-color: #EDC22E; color: #F9F6F2; box-shadow: 0 0 30px gold; }
+        .tile-256 { background-color: #EDCC61; color: #F9F6F2; }
+        .tile-512 { background-color: #EDC850; color: #F9F6F2; }
+        .tile-1024 { background-color: #EDC53F; color: #F9F6F2; }
+        .tile-2048 { background-color: #EDC22E; color: #F9F6F2; }
+        .tile-4096 { background-color: #3C3A32; color: #F9F6F2; }
 
-        /* Animation: Pop Effect */
-        .tile-new { animation: spawn 0.2s ease-out; }
+        /* Animation for new tile */
+        .tile-new {
+            animation: spawn 0.2s ease-out;
+        }
+
         @keyframes spawn {
             0% { transform: scale(0.5); opacity: 0.5; }
+            80% { transform: scale(1.1); opacity: 1; }
             100% { transform: scale(1); opacity: 1; }
         }
-        
-        .hidden { display: none !important; }
+
+        /* Modal backdrop */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            backdrop-blur-sm; /* Added blur */
+        }
     </style>
 </head>
-<body class="text-gray-100 p-4 bg-gray-900 min-h-screen flex flex-col items-center justify-center">
+<body class="text-gray-100 p-4 bg-gradient-to-br from-gray-900 to-indigo-950 min-h-screen">
 
-    <main id="welcome-page" class="text-center">
-        <h1 class="text-5xl font-bold mb-4">2048</h1>
-        <p class="mb-8 text-gray-400">Project by Pranjal & Rohit</p>
-        <button id="welcome-btn" class="bg-indigo-600 px-6 py-3 rounded-lg font-bold hover:bg-indigo-500">Start Game</button>
+    <!-- Page 1: Welcome -->
+    <main id="welcome-page" class="max-w-md mx-auto mt-20">
+        <div class="bg-gray-800/70 backdrop-blur-sm border border-gray-700 p-8 rounded-lg shadow-xl text-center">
+            <h1 class="text-5xl font-black text-white mb-4">Welcome to 2048!</h1>
+            <p class="text-lg text-gray-300 mb-8">The classic tile-merging game.</p>
+            <button id="welcome-continue-btn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 px-5 rounded-md shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 text-lg">
+                Click to Start
+            </button>
+        </div>
     </main>
 
-    <main id="game-page" class="hidden w-full max-w-md">
+    <!-- Page 2: Name Entry -->
+    <main id="name-page" class="max-w-md mx-auto mt-5 hidden">
+        <h1 class="text-5xl font-black text-white text-center mb-6">2048</h1>
+
+        <!-- Leaderboard -->
+        <div class="mb-6">
+            <h2 class="text-2xl font-bold text-center mb-3">🏆 Top 3 Scores 🏆</h2>
+            <div id="leaderboard" class="bg-gray-800/70 backdrop-blur-sm border border-gray-700 p-4 rounded-md shadow-lg">
+                <!-- Leaderboard entries will be generated by JS here -->
+            </div>
+        </div>
+
+        <!-- Name Input -->
+        <div class="bg-gray-800/70 backdrop-blur-sm border border-gray-700 p-6 rounded-lg shadow-xl">
+            <label for="player-name" class="block text-lg font-medium text-gray-300 mb-2 text-center">Enter your name to play:</label>
+            <input type="text" id="player-name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Player">
+            <button id="start-game-btn" class="mt-4 w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-2 px-4 rounded-md shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                Start Game
+            </button>
+        </div>
+    </main>
+
+    <!-- Page 2: Instructions -->
+    <div id="instructions-page" class="max-w-md mx-auto mt-5 hidden">
+        <div class="bg-gray-800/70 backdrop-blur-sm border border-gray-700 p-6 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-bold mb-4">🧩 How to Play 2048 🧩</h2>
+            <ol class="list-decimal list-inside space-y-2 text-gray-300">
+                <li>The game starts with two tiles (2 or 4).</li>
+                <li>Use <span class="font-bold">Arrow Keys</span> or <span class="font-bold">W, A, S, D</span> to move all tiles.</li>
+                <li>You can also <span class="font-bold">swipe</span> on touch screens.</li>
+                <li>When two tiles with the same number touch, they merge into one.</li>
+                <li>The goal is to create the <span class="font-bold">2048 tile</span>.</li>
+                <li>The game ends if there are no empty spaces and no valid moves.</li>
+            </ol>
+            <button id="start-playing-btn" class="mt-6 w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-500 hover:to-teal-500 text-white font-bold py-2 px-4 rounded-md shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                Let's Play!
+            </button>
+        </div>
+    </div>
+
+    <!-- Page 3: Game -->
+    <main id="game-page" class="max-w-md mx-auto mt-5 hidden">
+        
+        <!-- Header -->
         <header class="flex justify-between items-center mb-4">
-            <h1 class="text-4xl font-bold text-indigo-400">2048</h1>
+            <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">2048</h1>
             <div class="flex gap-2">
-                <div class="bg-gray-800 p-2 rounded text-center">
-                    <div class="text-xs text-gray-400">SCORE</div>
-                    <div id="score" class="font-bold">0</div>
+                <div class="bg-black/30 backdrop-blur-sm rounded-md text-center p-3">
+                    <div class="text-xs uppercase text-gray-300 font-semibold">Score</div>
+                    <div id="score" class="text-2xl font-bold">0</div>
                 </div>
-                <div class="bg-gray-800 p-2 rounded text-center">
-                    <div class="text-xs text-gray-400">BEST</div>
-                    <div id="high-score" class="font-bold">0</div>
+                <div class="bg-black/30 backdrop-blur-sm rounded-md text-center p-3">
+                    <div class="text-xs uppercase text-gray-300 font-semibold">High Score</div>
+                    <div id="high-score" class="text-2xl font-bold">0</div>
                 </div>
             </div>
         </header>
 
-        <div id="game-board" class="grid grid-cols-4 gap-3 bg-gray-800 p-3 rounded-lg aspect-square">
-            </div>
+        <!-- Controls -->
+        <div class="flex justify-between items-center mb-4">
+            <button id="new-game-btn" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-2 px-4 rounded-md shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                New Game
+            </button>
+            <button id="instructions-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                How to Play
+            </button>
+        </div>
 
-        <button id="restart-btn" class="mt-4 w-full bg-indigo-600 py-2 rounded font-bold">New Game</button>
+        <!-- Game Board -->
+        <div id="game-board" class="grid grid-cols-4 grid-rows-4 gap-3 bg-gray-800 p-3 rounded-md select-none shadow-inner" style="aspect-ratio: 1 / 1;">
+            <!-- Tiles will be generated by JS here -->
+        </div>
+        
+        <!-- Placeholder for leaderboard, which is now on page 1 -->
+        <!-- We can remove the leaderboard display from here if we want -->
+        <div class="mt-6">
+             <h2 class="text-2xl font-bold text-center mb-3 text-gray-700">Good Luck!</h2>
+        </div>
+
     </main>
 
-    <script>
-        // Configuration
-        const SIZE = 4;
+    <!-- Instructions Modal (for 'How to Play' button on game page) -->
+    <div id="instructions-modal" class="modal-backdrop hidden">
+        <div class="bg-gray-800/80 border border-gray-700 p-6 rounded-lg max-w-sm w-full mx-4 shadow-xl">
+            <h2 class="text-2xl font-bold mb-4">🧩 How to Play 2048 🧩</h2>
+            <ol class="list-decimal list-inside space-y-2 text-gray-300">
+                <li>The game starts with two tiles (2 or 4).</li>
+                <li>Use <span class="font-bold">Arrow Keys</span> or <span class="font-bold">W, A, S, D</span> to move all tiles.</li>
+                <li>You can also <span class="font-bold">swipe</span> on touch screens.</li>
+                <li>When two tiles with the same number touch, they merge into one.</li>
+                <li>The goal is to create the <span class="font-bold">2048 tile</span>.</li>
+                <li>The game ends if there are no empty spaces and no valid moves.</li>
+            </ol>
+            <button id="close-instructions-btn" class="mt-6 w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-2 px-4 rounded-md shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                Got it, let's play!
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="modal-backdrop hidden">
+        <div class="bg-gray-800/80 border border-gray-700 p-6 rounded-lg max-w-sm w-full mx-4 shadow-xl text-center">
+            <h2 id="modal-title" class="text-3xl font-bold mb-2">Game Over!</h2>
+            <p class="text-lg mb-4">Your final score: <span id="final-score" class="font-bold">0</span></p>
+            <p class="text-sm text-gray-400 mb-4">Your score has been saved!</p>
+
+            <!-- Leaderboard in Modal -->
+            <div class="my-4">
+                <h3 class="text-xl font-bold text-center mb-2">🏆 Top 3 Scores 🏆</h3>
+                <div id="modal-leaderboard" class="bg-black/30 p-3 rounded-md">
+                    <!-- Modal leaderboard will be rendered here -->
+                </div>
+            </div>
+
+            <button id="play-again-btn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-2 px-4 rounded-md shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // --- DOM Elements ---
+        // Page containers
+        const welcomePage = document.getElementById('welcome-page'); // Added
+        const namePage = document.getElementById('name-page');
+        const instructionsPage = document.getElementById('instructions-page');
+        const gamePage = document.getElementById('game-page');
+
+        // Welcome page elements
+        const welcomeContinueBtn = document.getElementById('welcome-continue-btn'); // Added
+
+        // Name page elements
+        const nameInput = document.getElementById('player-name');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const leaderboardEl = document.getElementById('leaderboard');
+        
+        // Instructions page elements
+        const startPlayingBtn = document.getElementById('start-playing-btn');
+
+        // Game page elements
+        const gameBoard = document.getElementById('game-board');
         const scoreEl = document.getElementById('score');
         const highScoreEl = document.getElementById('high-score');
-        const gameBoard = document.getElementById('game-board');
+        const newGameBtn = document.getElementById('new-game-btn');
+        const instructionsBtn = document.getElementById('instructions-btn');
 
-        // --- ROHIT'S CORE LOGIC CLASS ---
+        // Modals
+        const closeInstructionsBtn = document.getElementById('close-instructions-btn');
+        const instructionsModal = document.getElementById('instructions-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const finalScoreEl = document.getElementById('final-score');
+        const modalLeaderboardEl = document.getElementById('modal-leaderboard'); // Added
+        const playAgainBtn = document.getElementById('play-again-btn');
+
+        // --- Constants ---
+        const SIZE = 4;
+        const SCORE_FILE = '2048-scores';
+        const FIRST_PLAY_KEY = '2048-first-play';
+
         class Game2048 {
             constructor() {
                 this.size = SIZE;
-                this.score = 0;
-                
-                // [ROHIT]: 2D Matrix Initialization (The Database)
-                this.board = Array(this.size).fill().map(() => Array(this.size).fill(0));
-                
-                this.init();
+                this.highScore = 0;
+                this.currentPlayerName = "Player"; // Default name
+                this.initGame();
+                this.renderLeaderboard(); // Render for name page
             }
 
-            init() {
-                this.score = 0;
+            initGame() {
                 this.board = Array(this.size).fill().map(() => Array(this.size).fill(0));
+                this.score = 0;
+                this.gameWon = false;
+                this.gameOver = false;
+                this.lastSpawned = null; // Track last spawned tile for animation
                 this.spawn();
                 this.spawn();
+                this.highScore = this.getHighScore().score;
                 this.updateUI();
             }
 
-            // [ROHIT]: Algorithm to Spawn Random Tiles
-            spawn() {
-                const empty = [];
-                // Nested Loop to find empty spots
+            // --- UI Update ---
+            updateUI() {
+                this.renderBoard();
+                this.updateScores();
+                this.renderLeaderboard(); // Keep leaderboard updated
+            }
+            
+            updateScores() {
+                scoreEl.textContent = this.score;
+                highScoreEl.textContent = this.highScore;
+            }
+
+            renderBoard() {
+                gameBoard.innerHTML = ''; // Clear board
                 for (let r = 0; r < this.size; r++) {
                     for (let c = 0; c < this.size; c++) {
-                        if (this.board[r][c] === 0) empty.push({ r, c });
+                        const value = this.board[r][c];
+                        const tile = document.createElement('div');
+                        tile.className = `tile tile-${value}`;
+                        tile.textContent = value === 0 ? '' : value;
+                        
+                        // Add spawn animation if it's the last spawned tile
+                        if (this.lastSpawned && this.lastSpawned.r === r && this.lastSpawned.c === c) {
+                             tile.classList.add('tile-new');
+                             this.lastSpawned = null; // Clear after applying
+                        }
+
+                        gameBoard.appendChild(tile);
+                    }
+                }
+            }
+
+            // --- Game Logic (from Python) ---
+            spawn() {
+                const empty = [];
+                for (let r = 0; r < this.size; r++) {
+                    for (let c = 0; c < this.size; c++) {
+                        if (this.board[r][c] === 0) {
+                            empty.push({ r, c });
+                        }
                     }
                 }
                 if (empty.length === 0) return;
+
                 const { r, c } = empty[Math.floor(Math.random() * empty.length)];
                 this.board[r][c] = Math.random() < 0.1 ? 4 : 2;
+                this.lastSpawned = { r, c }; // Track for animation
             }
 
-            // [ROHIT]: Core Logic - Remove Zeros (Compression)
             compress(row) {
                 const newRow = row.filter(i => i !== 0);
-                while (newRow.length < this.size) newRow.push(0);
+                while (newRow.length < this.size) {
+                    newRow.push(0);
+                }
                 return newRow;
             }
 
-            // [ROHIT]: Core Logic - Merge Tiles (The Math: 2+2=4)
             merge(row) {
                 for (let i = 0; i < this.size - 1; i++) {
                     if (row[i] !== 0 && row[i] === row[i + 1]) {
                         row[i] *= 2;
+                        if (row[i] === 2048) this.gameWon = true;
                         this.score += row[i];
+                        if (this.score > this.highScore) {
+                            this.highScore = this.score;
+                        }
                         row[i + 1] = 0;
                     }
                 }
                 return row;
             }
+            
+            // Reverses a 1D array (row)
+            reverse(row) {
+                return row.slice().reverse();
+            }
 
-            // [ROHIT]: Smart Logic - Reverse Array (For Right Move)
-            reverse(row) { return row.slice().reverse(); }
-
-            // [ROHIT]: Smart Logic - Transpose Matrix (For Up/Down Moves)
+            // Transposes the 2D board array
             transpose() {
                 const newBoard = Array(this.size).fill().map(() => Array(this.size).fill(0));
                 for (let r = 0; r < this.size; r++) {
@@ -140,20 +358,22 @@
                 this.board = newBoard;
             }
 
-            // [ROHIT]: Controller - Handling Moves
             moveLeft() {
                 let moved = false;
-                const newBoard = this.board.map(row => {
+                const newBoard = [];
+                for (const row of this.board) {
                     const compressed = this.compress(row);
                     const merged = this.merge(compressed);
-                    const final = this.compress(merged); // Re-compress after merge
-                    if (JSON.stringify(row) !== JSON.stringify(final)) moved = true;
-                    return final;
-                });
+                    const newRow = this.compress(merged);
+                    if (JSON.stringify(newRow) !== JSON.stringify(row)) {
+                        moved = true;
+                    }
+                    newBoard.push(newRow);
+                }
                 this.board = newBoard;
                 return moved;
             }
-
+            
             moveRight() {
                 this.board = this.board.map(row => this.reverse(row));
                 const moved = this.moveLeft();
@@ -167,7 +387,7 @@
                 this.transpose();
                 return moved;
             }
-
+            
             moveDown() {
                 this.transpose();
                 const moved = this.moveRight();
@@ -175,58 +395,227 @@
                 return moved;
             }
 
+            // --- Game State Checkers ---
+            canMove() {
+                for (let r = 0; r < this.size; r++) {
+                    for (let c = 0; c < this.size; c++) {
+                        if (this.board[r][c] === 0) return true;
+                        if (c + 1 < this.size && this.board[r][c] === this.board[r][c + 1]) return true;
+                        if (r + 1 < this.size && this.board[r][c] === this.board[r + 1][c]) return true;
+                    }
+                }
+                return false;
+            }
+            
+            isWin() {
+                return this.gameWon; // We set this flag during merge
+            }
+
+            // --- Main Move Handler ---
             handleMove(direction) {
+                if (this.gameOver) return;
+                
                 let moved = false;
-                if (direction === 'ArrowLeft') moved = this.moveLeft();
-                if (direction === 'ArrowRight') moved = this.moveRight();
-                if (direction === 'ArrowUp') moved = this.moveUp();
-                if (direction === 'ArrowDown') moved = this.moveDown();
+                switch (direction) {
+                    case 'ArrowLeft': case 'KeyA': moved = this.moveLeft(); break;
+                    case 'ArrowRight': case 'KeyD': moved = this.moveRight(); break;
+                    case 'ArrowUp': case 'KeyW': moved = this.moveUp(); break;
+                    case 'ArrowDown': case 'KeyS': moved = this.moveDown(); break;
+                }
 
                 if (moved) {
                     this.spawn();
                     this.updateUI();
-                    this.saveHighScore();
-                }
-            }
 
-            // [ROHIT]: Persistence - LocalStorage
-            saveHighScore() {
-                const currentHigh = localStorage.getItem('2048-best') || 0;
-                if (this.score > currentHigh) {
-                    localStorage.setItem('2048-best', this.score);
-                }
-            }
-
-            // [PRANJAL]: Frontend Rendering (Updating the View)
-            updateUI() {
-                scoreEl.innerText = this.score;
-                highScoreEl.innerText = localStorage.getItem('2048-best') || 0;
-                gameBoard.innerHTML = '';
-                
-                for (let r = 0; r < this.size; r++) {
-                    for (let c = 0; c < this.size; c++) {
-                        const val = this.board[r][c];
-                        const tile = document.createElement('div');
-                        tile.className = `tile tile-${val} ${val ? 'tile-new' : ''}`;
-                        tile.innerText = val || '';
-                        gameBoard.appendChild(tile);
+                    if (this.isWin()) {
+                        this.gameOver = true; // Set to true to stop play
+                        this.showEndGameModal(true);
+                    } else if (!this.canMove()) {
+                        this.gameOver = true;
+                        this.showEndGameModal(false);
                     }
+                }
+            }
+
+            // --- Score & Leaderboard (localStorage) ---
+            loadScores() {
+                const scores = localStorage.getItem(SCORE_FILE);
+                if (!scores) return [];
+                try {
+                    const parsed = JSON.parse(scores);
+                    // Sort by score descending, then by name
+                    return parsed.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+                } catch (e) {
+                    return [];
+                }
+            }
+
+            saveScore() { // No arguments needed, uses class properties
+                const scores = this.loadScores();
+                scores.push({ name: this.currentPlayerName || "Player", score: this.score });
+                const sorted = scores.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+                const top3 = sorted.slice(0, 3);
+                localStorage.setItem(SCORE_FILE, JSON.stringify(top3));
+                this.renderLeaderboard();
+            }
+
+            getHighScore() {
+                const scores = this.loadScores();
+                return scores.length > 0 ? scores[0] : { name: "None", score: 0 };
+            }
+
+            renderLeaderboard() {
+                const scores = this.loadScores();
+                leaderboardEl.innerHTML = '';
+                if (scores.length === 0) {
+                    leaderboardEl.innerHTML = '<p class="text-gray-400 text-center">No scores yet!</p>';
+                    return;
+                }
+                scores.forEach((s, i) => {
+                    const el = document.createElement('div');
+                    el.className = 'flex justify-between items-center text-lg p-2 rounded-md';
+                    el.innerHTML = `
+                        <span class="font-semibold">${i + 1}. ${s.name}</span>
+                        <span class="font-bold text-indigo-400">${s.score}</span>
+                    `;
+                    leaderboardEl.appendChild(el);
+                });
+            }
+
+            // --- Modals ---
+            showInstructions() {
+                instructionsModal.classList.remove('hidden');
+            }
+
+            hideInstructions() {
+                instructionsModal.classList.add('hidden');
+            }
+
+            showEndGameModal(isWin) {
+                modalTitle.textContent = isWin ? "🎉 You Win! 🎉" : "❌ Game Over! ❌";
+                finalScoreEl.textContent = this.score;
+                this.saveScore(); // Automatically save the score
+
+                // Render leaderboard inside the modal
+                const scores = this.loadScores();
+                modalLeaderboardEl.innerHTML = ''; // Clear previous
+                if (scores.length === 0) {
+                    modalLeaderboardEl.innerHTML = '<p class="text-gray-400 text-center">No scores yet!</p>';
+                } else {
+                    scores.forEach((s, i) => {
+                        const el = document.createElement('div');
+                        el.className = 'flex justify-between items-center text-lg p-1';
+                        el.innerHTML = `
+                            <span class="font-semibold">${i + 1}. ${s.name}</span>
+                            <span class="font-bold text-indigo-400">${s.score}</span>
+                        `;
+                        modalLeaderboardEl.appendChild(el);
+                    });
+                }
+                
+                gameOverModal.classList.remove('hidden');
+            }
+
+            hideEndGameModal() {
+                gameOverModal.classList.add('hidden');
+            }
+            
+            checkFirstPlay() {
+                // No longer needed, new flow handles this
+            }
+        }
+
+        // --- Game Initialization ---
+        const game = new Game2048();
+
+        // --- Event Listeners ---
+        
+        // Keyboard input
+        document.addEventListener('keydown', (e) => {
+            // Prevent arrow keys from scrolling the page
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
+            game.handleMove(e.code);
+        });
+
+        // Touch input (Swipe)
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        gameBoard.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        });
+
+        gameBoard.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+
+            // Check for significant swipe
+            if (Math.max(absDx, absDy) > 30) { 
+                if (absDx > absDy) {
+                    // Horizontal swipe
+                    game.handleMove(dx > 0 ? 'ArrowRight' : 'ArrowLeft');
+                } else {
+                    // Vertical swipe
+                    game.handleMove(dy > 0 ? 'ArrowDown' : 'ArrowUp');
                 }
             }
         }
 
-        // --- INITIALIZATION ---
-        const game = new Game2048();
+        // --- Page Navigation and Button Clicks ---
 
-        // Event Listeners
-        document.addEventListener('keydown', (e) => game.handleMove(e.key));
-        
-        document.getElementById('welcome-btn').addEventListener('click', () => {
-            document.getElementById('welcome-page').classList.add('hidden');
-            document.getElementById('game-page').classList.remove('hidden');
+        // Page 1 -> Page 2
+        welcomeContinueBtn.addEventListener('click', () => {
+            welcomePage.classList.add('hidden');
+            namePage.classList.remove('hidden');
         });
 
-        document.getElementById('restart-btn').addEventListener('click', () => game.init());
+        // Page 2 -> Page 3
+        startGameBtn.addEventListener('click', () => {
+            const name = nameInput.value.trim();
+            game.currentPlayerName = name || "Player";
+            namePage.classList.add('hidden');
+            instructionsPage.classList.remove('hidden');
+        });
+
+        // Page 3 -> Page 4
+        startPlayingBtn.addEventListener('click', () => {
+            instructionsPage.classList.add('hidden');
+            gamePage.classList.remove('hidden');
+            // Game is already initialized by constructor, ready to play.
+        });
+
+        // Game Page Buttons
+        newGameBtn.addEventListener('click', () => game.initGame());
+        
+        instructionsBtn.addEventListener('click', () => game.showInstructions());
+        
+        // Instructions Modal Button
+        closeInstructionsBtn.addEventListener('click', () => game.hideInstructions());
+
+        // Game Over Modal Button
+        playAgainBtn.addEventListener('click', () => {
+            game.hideEndGameModal();
+            gamePage.classList.add('hidden'); // Hide the game page
+            namePage.classList.remove('hidden'); // Show the name page
+            game.initGame(); // Reset the game in the background
+        });
+
+        // --- Initial Load ---
+        // game.checkFirstPlay(); // No longer needed
+        // Game constructor already called and rendered leaderboard
 
     </script>
 </body>
