@@ -1,223 +1,233 @@
-import random
-import os
-
-try:
-    import msvcrt
-    def getch():
-        ch = msvcrt.getch().decode()
-        if ch == '\xe0': 
-            ch += msvcrt.getch().decode()
-        return ch
-
-except ImportError:
-    import sys
-    import tty
-    import termios
-    def getch():
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
-            if ch == '\x1b':
-                ch += sys.stdin.read(2)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch
-
-def clear_screen():
-    os.system('cls' if os.name == 'nt' else 'clear')
-
-SCORE_FILE = "scores.txt"
-
-def load_scores():
-    if not os.path.exists(SCORE_FILE):
-        return []
-    try:
-        with open(SCORE_FILE, "r") as f:
-            lines = [line.strip().split(",") for line in f.readlines() if line.strip()]
-            scores = [(name, int(score)) for name, score in lines]
-        return sorted(scores, key=lambda x: x[1], reverse=True)[:3]
-    except (IOError, ValueError):
-        return []
-
-def save_score(name, score):
-    scores = load_scores()
-    scores.append((name, score))
-    scores = sorted(scores, key=lambda x: x[1], reverse=True)[:3]
-    with open(SCORE_FILE, "w") as f:
-        for n, s in scores:
-            f.write(f"{n},{s}\n")
-
-def show_leaderboard():
-    scores = load_scores()
-    print("\n🏆 TOP 3 HIGH SCORES 🏆")
-    if not scores:
-        print("No scores yet!")
-    else:
-        for i, (name, score) in enumerate(scores, 1):
-            print(f"{i}. {name} - {score}")
-
-def get_high_score():
-    scores = load_scores()
-    if scores:
-        return scores[0]
-    return ("None", 0)
-
-class Game2048:
-    def __init__(self):
-        self.size = 4
-        self.board = [[0]*self.size for _ in range(self.size)]
-        self.score = 0
-        self.spawn()
-        self.spawn()
-
-    def spawn(self):
-        empty = [(r,c) for r in range(self.size) for c in range(self.size) if self.board[r][c] == 0]
-        if not empty:
-            return
-        r,c = random.choice(empty)
-        self.board[r][c] = 4 if random.random() < 0.1 else 2
-
-    def compress(self, row):
-        new_row = [i for i in row if i != 0]
-        new_row += [0]*(self.size - len(new_row))
-        return new_row
-
-    def merge(self, row):
-        for i in range(self.size-1):
-            if row[i] != 0 and row[i] == row[i+1]:
-                row[i] *= 2
-                self.score += row[i]
-                row[i+1] = 0
-        return row
-
-    def move_left(self):
-        moved = False
-        new_board = []
-        for row in self.board:
-            compressed = self.compress(row)
-            merged = self.merge(compressed)
-            new_row = self.compress(merged)
-            if new_row != row:
-                moved = True
-            new_board.append(new_row)
-        self.board = new_board
-        return moved
-
-    def move_right(self):
-        self.board = [row[::-1] for row in self.board]
-        moved = self.move_left()
-        self.board = [row[::-1] for row in self.board]
-        return moved
-
-    def transpose(self):
-        self.board = [list(row) for row in zip(*self.board)]
-
-    def move_up(self):
-        self.transpose()
-        moved = self.move_left()
-        self.transpose()
-        return moved
-
-    def move_down(self):
-        self.transpose()
-        moved = self.move_right()
-        self.transpose()
-        return moved
-
-    def can_move(self):
-        for r in range(self.size):
-            for c in range(self.size):
-                if self.board[r][c] == 0:
-                    return True
-                if c+1 < self.size and self.board[r][c] == self.board[r][c+1]:
-                    return True
-                if r+1 < self.size and self.board[r][c] == self.board[r+1][c]:
-                    return True
-        return False
-
-    def is_win(self):
-        for row in self.board:
-            if 2048 in row:
-                return True
-        return False
-
-    def print_board(self):
-        clear_screen()
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 Game Project</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* PRANJAL'S PART: Custom CSS & Animations */
+        body { font-family: 'Inter', sans-serif; touch-action: none; }
         
-        high_name, high_score = get_high_score()
-        print(f"Score: {self.score}    🏅 High Score: {high_score} ({high_name})")
-        print("-"*(self.size*6+1))
-        for row in self.board:
-            print("|", end="")
-            for num in row:
-                if num == 0:
-                    print("     |", end="")
-                else:
-                    print(f"{num:^5}|", end="")
-            print()
-            print("-"*(self.size*6+1))
-        print("\n🎮 CONTROLS:")
-        print("→ Arrow Keys or WASD to move.")
-        print("→ Press Q to quit anytime.\n")
+        .tile {
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; border-radius: 0.375rem;
+            font-size: 1.875rem; transition: all 0.15s ease-in-out;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Tile Colors */
+        .tile-0 { background-color: #374151; }
+        .tile-2 { background-color: #EEE4DA; color: #776E65; }
+        .tile-4 { background-color: #EDE0C8; color: #776E65; }
+        .tile-8 { background-color: #F2B179; color: #F9F6F2; }
+        .tile-16 { background-color: #F59563; color: #F9F6F2; }
+        .tile-32 { background-color: #F67C5F; color: #F9F6F2; }
+        .tile-64 { background-color: #F65E3B; color: #F9F6F2; }
+        .tile-128 { background-color: #EDCF72; color: #F9F6F2; }
+        .tile-2048 { background-color: #EDC22E; color: #F9F6F2; box-shadow: 0 0 30px gold; }
 
-    def show_instructions(self):
-        clear_screen()
-        print("🧩 HOW TO PLAY 2048 🧩\n")
-        print("1️⃣ The game starts with two tiles having numbers 2 or 4.")
-        print("2️⃣ Use arrow keys or W, A, S, D to move all tiles in one direction.")
-        print("3️⃣ When two tiles with the same number touch, they combine into one.")
-        print("   ➤ Example: 2 + 2 = 4, 4 + 4 = 8, 8 + 8 = 16 ... up to 2048!")
-        print("4️⃣ Each merge increases your score.")
-        print("5️⃣ The goal is to make the 2048 tile.")
-        print("6️⃣ Game ends if there are no empty spaces and no valid moves left.")
-        print("\n💡 Tip: Plan your moves carefully and try to keep larger numbers together!")
-        print("\nPress Enter to start playing...")
-        input()
+        /* Animation: Pop Effect */
+        .tile-new { animation: spawn 0.2s ease-out; }
+        @keyframes spawn {
+            0% { transform: scale(0.5); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="text-gray-100 p-4 bg-gray-900 min-h-screen flex flex-col items-center justify-center">
 
-    def play(self):
-        clear_screen()
-        print("Welcome to 2048 Game!\n")
-        show_leaderboard()
-        print("\nEnter your name:")
-        player_name = input(">> ").strip() or "Player"
+    <main id="welcome-page" class="text-center">
+        <h1 class="text-5xl font-bold mb-4">2048</h1>
+        <p class="mb-8 text-gray-400">Project by Pranjal & Rohit</p>
+        <button id="welcome-btn" class="bg-indigo-600 px-6 py-3 rounded-lg font-bold hover:bg-indigo-500">Start Game</button>
+    </main>
 
-        self.show_instructions()  
+    <main id="game-page" class="hidden w-full max-w-md">
+        <header class="flex justify-between items-center mb-4">
+            <h1 class="text-4xl font-bold text-indigo-400">2048</h1>
+            <div class="flex gap-2">
+                <div class="bg-gray-800 p-2 rounded text-center">
+                    <div class="text-xs text-gray-400">SCORE</div>
+                    <div id="score" class="font-bold">0</div>
+                </div>
+                <div class="bg-gray-800 p-2 rounded text-center">
+                    <div class="text-xs text-gray-400">BEST</div>
+                    <div id="high-score" class="font-bold">0</div>
+                </div>
+            </div>
+        </header>
 
-        self.print_board()
-        while True:
-            ch = getch()
-            if ch in ('q', 'Q'):
-                print("Game quit.")
-                break
-            
-            moved = False
-            if ch in ('a', 'A', '\x1b[D', '\xe0K'):  
-                moved = self.move_left()
-            elif ch in ('d', 'D', '\x1b[C', '\xe0M'):  
-                moved = self.move_right()
-            elif ch in ('w', 'W', '\x1b[A', '\xe0H'): 
-                moved = self.move_up()
-            elif ch in ('s', 'S', '\x1b[B', '\xe0P'):  
-                moved = self.move_down()
+        <div id="game-board" class="grid grid-cols-4 gap-3 bg-gray-800 p-3 rounded-lg aspect-square">
+            </div>
 
-            if moved:
-                self.spawn()
-                self.print_board()
-                if self.is_win():
-                    print("🎉 Congratulations! You reached 2048!")
-                    save_score(player_name, self.score)
-                    break
-                if not self.can_move():
-                    print("❌ Game Over! No more moves possible.")
-                    save_score(player_name, self.score)
-                    break
+        <button id="restart-btn" class="mt-4 w-full bg-indigo-600 py-2 rounded font-bold">New Game</button>
+    </main>
 
-        print("\nFinal Score:", self.score)
-        print("\nUpdated Leaderboard:")
-        show_leaderboard()
+    <script>
+        // Configuration
+        const SIZE = 4;
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('high-score');
+        const gameBoard = document.getElementById('game-board');
 
-if __name__ == "__main__":
-    game = Game2048()
-    game.play()
+        // --- ROHIT'S CORE LOGIC CLASS ---
+        class Game2048 {
+            constructor() {
+                this.size = SIZE;
+                this.score = 0;
+                
+                // [ROHIT]: 2D Matrix Initialization (The Database)
+                this.board = Array(this.size).fill().map(() => Array(this.size).fill(0));
+                
+                this.init();
+            }
+
+            init() {
+                this.score = 0;
+                this.board = Array(this.size).fill().map(() => Array(this.size).fill(0));
+                this.spawn();
+                this.spawn();
+                this.updateUI();
+            }
+
+            // [ROHIT]: Algorithm to Spawn Random Tiles
+            spawn() {
+                const empty = [];
+                // Nested Loop to find empty spots
+                for (let r = 0; r < this.size; r++) {
+                    for (let c = 0; c < this.size; c++) {
+                        if (this.board[r][c] === 0) empty.push({ r, c });
+                    }
+                }
+                if (empty.length === 0) return;
+                const { r, c } = empty[Math.floor(Math.random() * empty.length)];
+                this.board[r][c] = Math.random() < 0.1 ? 4 : 2;
+            }
+
+            // [ROHIT]: Core Logic - Remove Zeros (Compression)
+            compress(row) {
+                const newRow = row.filter(i => i !== 0);
+                while (newRow.length < this.size) newRow.push(0);
+                return newRow;
+            }
+
+            // [ROHIT]: Core Logic - Merge Tiles (The Math: 2+2=4)
+            merge(row) {
+                for (let i = 0; i < this.size - 1; i++) {
+                    if (row[i] !== 0 && row[i] === row[i + 1]) {
+                        row[i] *= 2;
+                        this.score += row[i];
+                        row[i + 1] = 0;
+                    }
+                }
+                return row;
+            }
+
+            // [ROHIT]: Smart Logic - Reverse Array (For Right Move)
+            reverse(row) { return row.slice().reverse(); }
+
+            // [ROHIT]: Smart Logic - Transpose Matrix (For Up/Down Moves)
+            transpose() {
+                const newBoard = Array(this.size).fill().map(() => Array(this.size).fill(0));
+                for (let r = 0; r < this.size; r++) {
+                    for (let c = 0; c < this.size; c++) {
+                        newBoard[c][r] = this.board[r][c];
+                    }
+                }
+                this.board = newBoard;
+            }
+
+            // [ROHIT]: Controller - Handling Moves
+            moveLeft() {
+                let moved = false;
+                const newBoard = this.board.map(row => {
+                    const compressed = this.compress(row);
+                    const merged = this.merge(compressed);
+                    const final = this.compress(merged); // Re-compress after merge
+                    if (JSON.stringify(row) !== JSON.stringify(final)) moved = true;
+                    return final;
+                });
+                this.board = newBoard;
+                return moved;
+            }
+
+            moveRight() {
+                this.board = this.board.map(row => this.reverse(row));
+                const moved = this.moveLeft();
+                this.board = this.board.map(row => this.reverse(row));
+                return moved;
+            }
+
+            moveUp() {
+                this.transpose();
+                const moved = this.moveLeft();
+                this.transpose();
+                return moved;
+            }
+
+            moveDown() {
+                this.transpose();
+                const moved = this.moveRight();
+                this.transpose();
+                return moved;
+            }
+
+            handleMove(direction) {
+                let moved = false;
+                if (direction === 'ArrowLeft') moved = this.moveLeft();
+                if (direction === 'ArrowRight') moved = this.moveRight();
+                if (direction === 'ArrowUp') moved = this.moveUp();
+                if (direction === 'ArrowDown') moved = this.moveDown();
+
+                if (moved) {
+                    this.spawn();
+                    this.updateUI();
+                    this.saveHighScore();
+                }
+            }
+
+            // [ROHIT]: Persistence - LocalStorage
+            saveHighScore() {
+                const currentHigh = localStorage.getItem('2048-best') || 0;
+                if (this.score > currentHigh) {
+                    localStorage.setItem('2048-best', this.score);
+                }
+            }
+
+            // [PRANJAL]: Frontend Rendering (Updating the View)
+            updateUI() {
+                scoreEl.innerText = this.score;
+                highScoreEl.innerText = localStorage.getItem('2048-best') || 0;
+                gameBoard.innerHTML = '';
+                
+                for (let r = 0; r < this.size; r++) {
+                    for (let c = 0; c < this.size; c++) {
+                        const val = this.board[r][c];
+                        const tile = document.createElement('div');
+                        tile.className = `tile tile-${val} ${val ? 'tile-new' : ''}`;
+                        tile.innerText = val || '';
+                        gameBoard.appendChild(tile);
+                    }
+                }
+            }
+        }
+
+        // --- INITIALIZATION ---
+        const game = new Game2048();
+
+        // Event Listeners
+        document.addEventListener('keydown', (e) => game.handleMove(e.key));
+        
+        document.getElementById('welcome-btn').addEventListener('click', () => {
+            document.getElementById('welcome-page').classList.add('hidden');
+            document.getElementById('game-page').classList.remove('hidden');
+        });
+
+        document.getElementById('restart-btn').addEventListener('click', () => game.init());
+
+    </script>
+</body>
+</html>
